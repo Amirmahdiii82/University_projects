@@ -1,0 +1,6 @@
+use AdventureWorks2019
+go
+select Per.FirstName, Per.LastName, Pass.PasswordHash, pp.PhoneNumber
+from [Person].[Person] Per inner join [Person].[Password] Pass
+on Per.BusinessEntityID=Pass.BusinessEntityID inner join [Person].[PersonPhone] pp
+on Pass.BusinessEntityID=Pp.BusinessEntityID

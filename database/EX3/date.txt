@@ -1,0 +1,59 @@
+CREATE FUNCTION dbo.DateConversion(@InputDate DATE)
+RETURNS NVARCHAR(10)
+AS
+BEGIN
+    DECLARE @YearAdjust INT, @MonthIndex INT, @DayIndex INT, 
+            @DayCount INT, @YearDayIndex INT, @LeapAdj INT, @LeapYear FLAG,
+            @ResultFormatted NVARCHAR(10)
+
+    SELECT @LeapYear = IIF((YEAR(@InputDate) % 4 = 0 AND YEAR(@InputDate) % 100 <> 0) OR (YEAR(@InputDate) % 400 = 0), 1, 0)
+    SELECT @LeapAdj = IIF((YEAR(@InputDate) - 621) % 4 = 0, 1, 0)
+    SELECT @YearDayIndex = DATEPART(DAYOFYEAR, @InputDate)
+
+    IF @YearDayIndex > 79 + @LeapYear
+    BEGIN
+        SET @YearAdjust = YEAR(@InputDate) - 621
+        SET @DayCount = @YearDayIndex - (79 + @LeapYear)
+    END
+    ELSE
+    BEGIN
+        SET @YearAdjust = YEAR(@InputDate) - 622
+        SET @DayCount = @YearDayIndex + (286 + @LeapAdj)
+    END
+
+    IF @DayCount <= 186
+    BEGIN
+        SET @MonthIndex = (@DayCount - 1) / 31 + 1
+        SET @DayIndex = (@DayCount - 1) % 31 + 1
+    END
+    ELSE
+    BEGIN
+        SET @DayCount -= 186
+        SET @MonthIndex = (@DayCount - 1) / 30 + 7
+        SET @DayIndex = (@DayCount - 1) % 30 + 1
+        IF @MonthIndex > 12
+        BEGIN
+            SET @MonthIndex = 1
+            SET @YearAdjust += 1
+        END
+    END
+
+    IF @DayIndex < 1 
+    BEGIN
+        SET @MonthIndex -= 1
+        SET @DayIndex = CASE WHEN @MonthIndex IN (1, 2, 3, 4, 5, 6) THEN 31
+                             WHEN @MonthIndex IN (7, 8, 9, 10, 11) THEN 30
+                             WHEN @MonthIndex = 12 THEN 30 + @LeapAdj
+                        END
+    END
+
+    SELECT @ResultFormatted = FORMAT(@YearAdjust, '0000') + '-' +
+                              RIGHT('00' + FORMAT(@MonthIndex, '0'), 2) + '-' +
+                              RIGHT('00' + FORMAT(@DayIndex, '0'), 2)
+
+    RETURN @ResultFormatted
+END
+GO
+
+SELECT dbo.DateConversion(ModifiedDate)
+from person.person
